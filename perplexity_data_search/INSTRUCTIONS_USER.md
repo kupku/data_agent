@@ -42,11 +42,12 @@ models/
    ```bash
    cp .env.example .env
    ```
-2. Заполните в `.env`:
+2. Заполните в `.env` (интеграция через `langchain_gigachat.chat_models.GigaChat`):
    - `GIGACHAT_CREDENTIALS`
-   - `GIGACHAT_SCOPE`
-   - `GIGACHAT_CA_CERT_PATH` (если нужно)
+   - `GIGACHAT_SCOPE` (например `GIGACHAT_API_CORP`)
+   - `GIGACHAT_BASE_URL` (если используется корпоративный URL)
    - `GIGACHAT_CERT_FILE`, `GIGACHAT_KEY_FILE` (если требуется mTLS)
+   - `GIGACHAT_VERIFY_SSL`, `GIGACHAT_TIMEOUT`, `GIGACHAT_TOP_P`, `GIGACHAT_STREAMING`
 3. Убедитесь, что пути к моделям/каталогу корректны.
 
 ## Шаг 5. Генерация тестового каталога (делает пользователь)

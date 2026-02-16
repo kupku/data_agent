@@ -31,11 +31,17 @@ class Settings(BaseSettings):
 
     GIGACHAT_CREDENTIALS: str = ""
     GIGACHAT_SCOPE: str = "GIGACHAT_API_PERS"
-    GIGACHAT_VERIFY_SSL: bool = True
-    GIGACHAT_CA_CERT_PATH: str | None = None
+    GIGACHAT_BASE_URL: str | None = None
+    GIGACHAT_VERIFY_SSL: bool = False
     GIGACHAT_CERT_FILE: str | None = None
     GIGACHAT_KEY_FILE: str | None = None
     GIGACHAT_MODEL: str = "GigaChat-Pro"
+    GIGACHAT_MAX_TOKENS: int | None = None
+    GIGACHAT_TOP_P: float = 1.0
+    GIGACHAT_TIMEOUT: int = 1000
+    GIGACHAT_VERBOSE: bool = False
+    GIGACHAT_PROFANITY_CHECK: bool = False
+    GIGACHAT_STREAMING: bool = False
 
     GIGACHAT_RETRY_ATTEMPTS: int = 3
     GIGACHAT_RETRY_MIN_WAIT: int = 1

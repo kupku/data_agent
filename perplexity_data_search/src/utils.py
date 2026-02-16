@@ -5,7 +5,8 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List
 
-from gigachat import GigaChat
+from langchain_core.messages import BaseMessage
+from langchain_gigachat.chat_models import GigaChat
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import CrossEncoder, SentenceTransformer
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
@@ -17,18 +18,27 @@ logger = setup_logger(__name__)
 
 _embedder: SentenceTransformer | None = None
 _reranker: CrossEncoder | None = None
-_gigachat_client: GigaChat | None = None
+_gigachat_llm: GigaChat | None = None
 
 
-def _build_gigachat_client() -> GigaChat:
-    """Создаёт экземпляр клиента GigaChat на основе настроек."""
+def _build_gigachat_llm(temperature: float | None = None) -> GigaChat:
+    """Создаёт экземпляр LangChain GigaChat на основе настроек."""
     kwargs: Dict[str, Any] = {
         "credentials": settings.GIGACHAT_CREDENTIALS,
         "scope": settings.GIGACHAT_SCOPE,
+        "model": settings.GIGACHAT_MODEL,
         "verify_ssl_certs": settings.GIGACHAT_VERIFY_SSL,
+        "max_tokens": settings.GIGACHAT_MAX_TOKENS,
+        "temperature": settings.LLM_TEMPERATURE if temperature is None else temperature,
+        "top_p": settings.GIGACHAT_TOP_P,
+        "timeout": settings.GIGACHAT_TIMEOUT,
+        "verbose": settings.GIGACHAT_VERBOSE,
+        "profanity_check": settings.GIGACHAT_PROFANITY_CHECK,
+        "streaming": settings.GIGACHAT_STREAMING,
     }
-    if settings.GIGACHAT_CA_CERT_PATH:
-        kwargs["ca_bundle_file"] = settings.GIGACHAT_CA_CERT_PATH
+
+    if settings.GIGACHAT_BASE_URL:
+        kwargs["base_url"] = settings.GIGACHAT_BASE_URL
     if settings.GIGACHAT_CERT_FILE:
         kwargs["cert_file"] = settings.GIGACHAT_CERT_FILE
     if settings.GIGACHAT_KEY_FILE:
@@ -37,13 +47,19 @@ def _build_gigachat_client() -> GigaChat:
     return GigaChat(**kwargs)
 
 
-def get_gigachat_client() -> GigaChat:
-    """Возвращает singleton-клиент GigaChat."""
-    global _gigachat_client
-    if _gigachat_client is None:
-        logger.info("Initializing GigaChat client")
-        _gigachat_client = _build_gigachat_client()
-    return _gigachat_client
+def get_gigachat_llm() -> GigaChat:
+    """Возвращает singleton-экземпляр GigaChat LangChain."""
+    global _gigachat_llm
+    if _gigachat_llm is None:
+        logger.info("Initializing LangChain GigaChat client")
+        _gigachat_llm = _build_gigachat_llm()
+    return _gigachat_llm
+
+
+def get_supervisor_agent(tools: List[Any]) -> Any:
+    """Создаёт tool-bound агент в стиле llm.bind_tools(tools=...)."""
+    llm = get_gigachat_llm()
+    return llm.bind_tools(tools=tools)
 
 
 @retry(
@@ -53,34 +69,27 @@ def get_gigachat_client() -> GigaChat:
     reraise=True,
 )
 def gigachat_complete(prompt: str, temperature: float = 0.7) -> str:
-    """Выполняет запрос к GigaChat с автоматическими повторами.
-
-    Args:
-        prompt: Промпт для модели.
-        temperature: Температура генерации.
-
-    Returns:
-        Текст ответа модели.
-
-    Raises:
-        RuntimeError: Если не удалось получить ответ после всех попыток.
-    """
+    """Выполняет запрос к GigaChat через LangChain invoke с автоматическими повторами."""
     logger.info("Calling GigaChat (prompt_len=%s)", len(prompt))
     try:
-        client = get_gigachat_client()
-        response = client.chat(
-            prompt,
-            model=settings.GIGACHAT_MODEL,
-            temperature=temperature,
-        )
-        content = getattr(response, "choices", [{}])[0].get("message", {}).get("content")
-        if not content:
-            content = getattr(response, "text", None)
-        if not content and isinstance(response, str):
+        llm = get_gigachat_llm()
+        if abs(temperature - settings.LLM_TEMPERATURE) > 1e-9:
+            llm = _build_gigachat_llm(temperature=temperature)
+
+        response = llm.invoke(prompt)
+
+        if isinstance(response, BaseMessage):
+            content = response.content
+        else:
             content = response
+
+        if isinstance(content, list):
+            content = " ".join(str(item) for item in content)
+        content = str(content).strip()
+
         if not content:
             raise ValueError("Empty response from GigaChat")
-        return str(content)
+        return content
     except Exception as exc:
         logger.exception("GigaChat request failed: %s", exc)
         raise RuntimeError(f"GigaChat failed: {exc}") from exc
