@@ -1,10 +1,10 @@
 """Общие утилиты проекта: LLM, модели, токенизация, загрузка данных."""
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List
 
-import nltk
 from gigachat import GigaChat
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from sentence_transformers import CrossEncoder, SentenceTransformer
@@ -14,7 +14,6 @@ from src.config import settings
 from src.logger import setup_logger
 
 logger = setup_logger(__name__)
-nltk.download("punkt", quiet=True)
 
 _embedder: SentenceTransformer | None = None
 _reranker: CrossEncoder | None = None
@@ -88,8 +87,8 @@ def gigachat_complete(prompt: str, temperature: float = 0.7) -> str:
 
 
 def tokenize(text: str) -> List[str]:
-    """Токенизирует текст для BM25."""
-    return nltk.word_tokenize(text.lower())
+    """Токенизирует текст для BM25 без внешних NLTK-корпусов."""
+    return re.findall(r"\w+", text.lower(), flags=re.UNICODE)
 
 
 def get_embedder() -> SentenceTransformer:

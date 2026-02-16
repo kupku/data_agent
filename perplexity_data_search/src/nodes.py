@@ -94,7 +94,7 @@ def hybrid_search_node(
             documents=documents,
             collection=collection,
             k=max(settings.BM25_TOP_K, settings.VECTOR_TOP_K),
-            weights=settings.RRF_WEIGHTS,
+            weights=settings.rrf_weights,
         )
         for cand in candidates:
             pid = cand["product_id"]

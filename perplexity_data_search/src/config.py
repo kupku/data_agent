@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Tuple
 
-from pydantic import Field, field_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,22 +48,19 @@ class Settings(BaseSettings):
     BM25_TOP_K: int = 20
     VECTOR_TOP_K: int = 20
     RRF_K: int = 60
-    RRF_WEIGHTS: Tuple[float, float] = (0.5, 0.5)
+    RRF_WEIGHTS: str = "0.5,0.5"
     FINAL_CANDIDATES_COUNT: int = 10
     RERANK_TOP_K: int = 5
 
     MAX_EDA_CHUNKS_IN_CONTEXT: int = 3
     LLM_TEMPERATURE: float = 0.4
 
-    @field_validator("RRF_WEIGHTS", mode="before")
-    @classmethod
-    def parse_rrf_weights(cls, value: str | Tuple[float, float]) -> Tuple[float, float]:
-        """Преобразует строку вида '0.5,0.5' в tuple(float, float)."""
-        if isinstance(value, tuple):
-            return value
-        parts = [float(part.strip()) for part in str(value).split(",")]
+    @property
+    def rrf_weights(self) -> Tuple[float, float]:
+        """Возвращает веса RRF в формате tuple(float, float)."""
+        parts = [float(part.strip()) for part in str(self.RRF_WEIGHTS).split(",") if part.strip()]
         if len(parts) != 2:
-            raise ValueError("RRF_WEIGHTS must contain exactly two numbers")
+            raise ValueError("RRF_WEIGHTS must contain exactly two numbers, e.g. 0.5,0.5")
         return parts[0], parts[1]
 
     def resolve_path(self, path: Path) -> Path:
